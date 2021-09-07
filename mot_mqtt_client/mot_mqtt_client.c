@@ -44,10 +44,12 @@ static int8_t op_t = 1;
 static esp_mqtt_client_handle_t glb_client;
 
 static bool is_inited = false;
-static const char *json_buf = NULL;
+static char *json_buf = NULL;
 static char game_topic[64];
+static char stats_topic[64];
 static const char *train_topic = "motivate/train";
-static char mot_client_id[CLIENT_ID_LEN + 1];
+
+static const char* mot_client_id = CONFIG_MOT_CLIENT_ID;
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -146,18 +148,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-void mot_mqtt_client_init(int game_id)
+void mot_mqtt_client_init(int game_id,char* player_id)
 {
     sprintf(game_topic,"motivate/game/%d",game_id);
-    ATCA_STATUS ret = Atecc608_GetSerialString(mot_client_id);
-
-    if (ret != ATCA_SUCCESS)
-    {
-        printf("Failed to get device serial from secure element. Error: %i", ret);
-        char* tmpname = sprintf("mot-%d",rand() % 100);
-        strncpy(mot_client_id,tmpname,CLIENT_ID_LEN);
-    }
-
+    sprintf(stats_topic,"motivate/stats/%s",player_id);
     ESP_LOGI(TAG, "Client ID:%s", mot_client_id);
     json_buf = malloc(JSON_BUFSIZE);
     esp_err_t esp_ret = ESP_FAIL;
@@ -221,6 +215,7 @@ void fdump(float **buf, int m)
         }
     }
 }
+
 void send_position(int x, int y,int t, unsigned time)
 {
     if (!is_inited)
@@ -247,6 +242,34 @@ void send_position(int x, int y,int t, unsigned time)
 
     cJSON_Delete(pos);
 }
+
+void send_stats(unsigned maze_id , unsigned session,unsigned step_count, unsigned capture_count, unsigned caught_count, unsigned time )
+{
+    if (!is_inited)
+    {
+        ESP_LOGW(TAG, "MQTT NOT INITED!!!");
+        return;
+    }
+    cJSON *stats = cJSON_CreateObject();
+    cJSON *m_id = cJSON_CreateNumber(maze_id);
+    cJSON *s = cJSON_CreateNumber(session);
+    cJSON *s_cnt = cJSON_CreateNumber(step_count);
+    cJSON *cap_cnt = cJSON_CreateNumber(capture_count);
+    cJSON *caught_cnt = cJSON_CreateNumber(caught_count);
+    cJSON *t= cJSON_CreateNumber(time);
+
+    cJSON_AddItemToObject(stats, "time",t);
+    cJSON_AddItemToObject(stats, "maze_id", m_id);
+    cJSON_AddItemToObject(stats, "session", s);
+    cJSON_AddItemToObject(stats, "step_count", s_cnt);
+    cJSON_AddItemToObject(stats, "capture_count", cap_cnt);
+    cJSON_AddItemToObject(stats, "caught_count", caught_cnt);
+
+    cJSON_PrintPreallocated(stats, json_buf, JSON_BUFSIZE, false);
+    int pub_ret = esp_mqtt_client_publish(glb_client, stats_topic, json_buf, 0, 1, 0);
+    cJSON_Delete(stats);
+}
+
 void send_sample(float **a_samples, float **g_samples, int a_size, int g_size, int type, unsigned time)
 {
     if (!is_inited)

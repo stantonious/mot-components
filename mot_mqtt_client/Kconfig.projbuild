@@ -1,0 +1,9 @@
+menu "MOT MQTT Config"
+
+    config MOT_CLIENT_ID
+        string "MOT Client ID"
+        default "mot0"
+        help
+            The unique ID for this MOT client
+
+endmenu

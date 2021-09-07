@@ -6,9 +6,10 @@
 
 TaskHandle_t MotMqttClientHandle;
 
-void mot_mqtt_client_init(int game_id);
+void mot_mqtt_client_init(int game_id,char* player_id);
 void get_op_x_y_t(int8_t* x,int8_t* y,int8_t* t);
 void send_position(int x, int y, int t,unsigned time);
 void send_sample(float **a_samples,float **g_samples,int a_size,int g_size,int type,unsigned time);
+void send_stats(unsigned maze_id , unsigned session,unsigned step_count, unsigned capture_count, unsigned caught_count, unsigned time );
 
 #endif
