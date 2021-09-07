@@ -154,7 +154,8 @@ void mot_mqtt_client_init(int game_id)
     if (ret != ATCA_SUCCESS)
     {
         printf("Failed to get device serial from secure element. Error: %i", ret);
-        abort();
+        char* tmpname = sprintf("mot-%d",rand() % 100);
+        strncpy(mot_client_id,tmpname,CLIENT_ID_LEN);
     }
 
     ESP_LOGI(TAG, "Client ID:%s", mot_client_id);
