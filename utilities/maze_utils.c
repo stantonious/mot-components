@@ -103,7 +103,6 @@ void get_status_pos_from_cell(int x_cell, int y_cell, int dir, int *x_pos, int *
     t_x = t_x + (.5 * MAZE_SCALE) - x_map_center;
     t_y = t_y + (.5 * MAZE_SCALE) - y_map_center;
 
-    ESP_LOGI("UTIL", "status trans x:%d y:%d x:%d y:%d", x_cell, y_cell, t_x, t_y);
     *x_pos = t_x * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_WIDTH / 2);
     *y_pos = t_y * (WALL_LENGTH - WALL_WIDTH) + (WALL_LENGTH / 2) - (STATUS_LENGTH / 2);
 }

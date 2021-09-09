@@ -19,7 +19,6 @@
 #include "mot-imu-model.h"
 #include "imu_task.h"
 
-
 static const char *TAG = "MOT_IMU_TFL_HANDLER";
 
 static TfLiteTensor *mot_input = nullptr;
@@ -30,11 +29,12 @@ static const int g_max = 90;
 static const int a_min = -1;
 static const int a_max = 1;
 
-#define INF_THRESH .8
+
+#define INF_THRESH .85
 #define INF_SIZE 10
-static CircularBuffer<int16_t, INF_SIZE> inf_cb;
-static CircularBuffer<float, INF_SIZE> conf_cb;
+
 static SemaphoreHandle_t xInfSemaphore;
+static CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES];
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace
@@ -102,7 +102,7 @@ void init_mot_imu(void)
   mot_input = mot_interpreter->input(0);
   mot_output = mot_interpreter->output(0);
 
-  xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096 , NULL, 1, &mot_imu_handle, 0);
+  xTaskCreatePinnedToCore(mot_imu_task, "MotImuTfTask", 2096, NULL, 1, &mot_imu_handle, 0);
 }
 
 float get_max_idx_cb(CircularBuffer<float, INF_SIZE> &buf, int lastn)
@@ -129,7 +129,7 @@ float get_max(float *f, int n)
   }
   return max;
 }
-int get_max_idx(float *f, int n)
+int get_max_idx(float *f, int n, float thresh)
 {
   int max_idx = 0;
   float max = f[0];
@@ -141,46 +141,34 @@ int get_max_idx(float *f, int n)
       max = f[i];
     }
   }
-  return max_idx;
+  if (max > thresh)
+    return max_idx;
+  else
+    return UNCERTAIN_LABEL;
 }
 
-int buffer_infer(void *ax,
-                 void *ay,
-                 void *az,
-                 void *gx,
-                 void *gy,
-                 void *gz)
+int get_max_avg_idx(CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES], int last_n)
 {
-  static float thresh = .8;
-  static float confs_buf[NUM_CLASSES];
-  buffer_confs(ax, ay, az, gx, gy, gz, confs_buf);
-
-  float max_conf = get_max(confs_buf, NUM_CLASSES);
-
-  if (max_conf < thresh)
+  float avgs[NUM_CLASSES] = {0.};
+  for (int j = 0; j < NUM_CLASSES; j++)
   {
-    //ESP_LOGI(TAG, "confidence too low return 0");
-    return -1;
+    for (int i = INF_SIZE - 1; i >= INF_SIZE - last_n; i--)
+    {
+      avgs[j] += conf_cbs[j][i] / (INF_SIZE - last_n);
+    }
   }
-
-  return get_max_idx(confs_buf, NUM_CLASSES);
+  return get_max_idx(avgs, NUM_CLASSES, INF_THRESH);
 }
-int buffer_confs(void *ax,
-                 void *ay,
-                 void *az,
-                 void *gx,
-                 void *gy,
-                 void *gz,
-                 float *buf)
 
+int buffer_confs(
+    CircularBuffer<float, BUFSIZE> *ax_cb,
+    CircularBuffer<float, BUFSIZE> *ay_cb,
+    CircularBuffer<float, BUFSIZE> *az_cb,
+    CircularBuffer<float, BUFSIZE> *gx_cb,
+    CircularBuffer<float, BUFSIZE> *gy_cb,
+    CircularBuffer<float, BUFSIZE> *gz_cb,
+    CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES])
 {
-
-  CircularBuffer<float, BUFSIZE> *ax_cb = (CircularBuffer<float, BUFSIZE> *)ax;
-  CircularBuffer<float, BUFSIZE> *ay_cb = (CircularBuffer<float, BUFSIZE> *)ay;
-  CircularBuffer<float, BUFSIZE> *az_cb = (CircularBuffer<float, BUFSIZE> *)az;
-  CircularBuffer<float, BUFSIZE> *gx_cb = (CircularBuffer<float, BUFSIZE> *)gx;
-  CircularBuffer<float, BUFSIZE> *gy_cb = (CircularBuffer<float, BUFSIZE> *)gy;
-  CircularBuffer<float, BUFSIZE> *gz_cb = (CircularBuffer<float, BUFSIZE> *)gz;
 
   int8_t *d_i = tflite::GetTensorData<int8>(mot_input);
 
@@ -216,15 +204,15 @@ int buffer_confs(void *ax,
 
   // Read the predicted y value from the model's output tensor
 
-  buf[0] = (mot_output->data.int8[0] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[1] = (mot_output->data.int8[1] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[2] = (mot_output->data.int8[2] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[3] = (mot_output->data.int8[3] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[4] = (mot_output->data.int8[4] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[5] = (mot_output->data.int8[5] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[6] = (mot_output->data.int8[6] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[7] = (mot_output->data.int8[7] - mot_output->params.zero_point) * mot_output->params.scale;
-  buf[8] = (mot_output->data.int8[8] - mot_output->params.zero_point) * mot_output->params.scale;
+  conf_cbs[0].push((mot_output->data.int8[0] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[1].push((mot_output->data.int8[1] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[2].push((mot_output->data.int8[2] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[3].push((mot_output->data.int8[3] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[4].push((mot_output->data.int8[4] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[5].push((mot_output->data.int8[5] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[6].push((mot_output->data.int8[6] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[7].push((mot_output->data.int8[7] - mot_output->params.zero_point) * mot_output->params.scale);
+  conf_cbs[8].push((mot_output->data.int8[8] - mot_output->params.zero_point) * mot_output->params.scale);
 
   return 0;
 }
@@ -232,70 +220,31 @@ int buffer_confs(void *ax,
 void mot_imu_task(void *pvParameters)
 {
 
-  int stackSize = uxTaskGetStackHighWaterMark(NULL);
-  int heapSize = xPortGetFreeHeapSize();
-  ESP_LOGI(TAG, "TF STACK HWM %d",stackSize);
-  ESP_LOGI(TAG, "TF HEAP HWM %d",heapSize);
-  float confs[NUM_CLASSES];
   for (;;)
   {
 
     xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
-    buffer_confs(
-        ax_buf,
-        ay_buf,
-        az_buf,
-        gx_buf,
-        gy_buf,
-        gz_buf,
-        confs);
-    xSemaphoreGive(xImuSemaphore);
-
     xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
-    int idx = get_max_idx(confs, NUM_CLASSES);
-    inf_cb.push(idx);
-    conf_cb.push(confs[idx]);
+    buffer_confs(
+        (CircularBuffer<float, BUFSIZE> *)ax_buf,
+        (CircularBuffer<float, BUFSIZE> *)ay_buf,
+        (CircularBuffer<float, BUFSIZE> *)az_buf,
+        (CircularBuffer<float, BUFSIZE> *)gx_buf,
+        (CircularBuffer<float, BUFSIZE> *)gy_buf,
+        (CircularBuffer<float, BUFSIZE> *)gz_buf,
+        conf_cbs);
     xSemaphoreGive(xInfSemaphore);
+    xSemaphoreGive(xImuSemaphore);
 
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
 
-float conv_coefs[INF_SIZE] = {
-    .2,
-    .3,
-    .4,
-    .5,
-    .4,
-    .5,
-    .6,
-    .9,
-    1.,
-    .5};
 
 int get_latest_inf(int n_last)
 {
-
-  /*
   xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
-  int res = get_max_idx_cb(conf_cb,3);
+  int res = get_max_avg_idx(conf_cbs, n_last);
   xSemaphoreGive(xInfSemaphore);
   return res;
-  */
-  float res[NUM_CLASSES];
-
-  for (int i = 0; i < NUM_CLASSES; i++)
-  {
-    res[i] = 0.;
-  }
-
-  for (int i = INF_SIZE - 1; i >= 0 && i >= INF_SIZE - n_last; i--)
-  {
-    int idx = inf_cb[i];
-    res[idx] += conf_cb[i];
-  }
-
-  float max_conf = get_max(res,NUM_CLASSES);
-  if (max_conf < INF_THRESH) return UNCERTAIN_LABEL;
-  return get_max_idx(res, NUM_CLASSES);
 }

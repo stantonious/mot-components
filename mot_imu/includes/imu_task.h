@@ -18,3 +18,5 @@ extern void *az_buf;
 extern void *gz_buf;
 extern void *gx_buf;
 extern void *gy_buf;
+
+extern float dot_avg;

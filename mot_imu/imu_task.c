@@ -7,9 +7,11 @@
 #include "core2forAWS.h"
 
 #include "imu_task.h"
+#include "esp_dsp.h"
+#include "mot_math.h"
+#include "float_buffer.h"
 
 static const char *TAG = "IMU_TASK";
-
 
 SemaphoreHandle_t xImuSemaphore;
 
@@ -20,6 +22,14 @@ void *az_buf;
 void *gz_buf;
 void *gx_buf;
 void *gy_buf;
+
+void *dot_buf;
+float dot_avg = 0.;
+
+#define STABILIZE_THRESH .1
+
+//static bool stabilize = true;
+static const float down_uv[3] = {-.007, .48, .87}; ///~ 15 deg.
 
 void init_imu(void)
 {
@@ -33,6 +43,8 @@ void init_imu(void)
     gy_buf = get_buffer();
     gz_buf = get_buffer();
     xSemaphoreGive(xImuSemaphore);
+
+    dot_buf = get_buffer();
 }
 
 void imu_handler_task(void *pvParameters)
@@ -44,6 +56,18 @@ void imu_handler_task(void *pvParameters)
     {
         MPU6886_GetAccelData(&ax, &ay, &az);
         MPU6886_GetGyroData(&gx, &gy, &gz);
+
+        float res;
+        float current_down[3] = {ax, ay, az};
+        float current_down_uv[3] = {0};
+        unit_vect(current_down, current_down_uv, 3);
+        esp_err_t ret = dsps_dotprod_f32(down_uv, current_down_uv, &res, 3);
+
+        if (ret != ESP_OK)
+            printf("dotprod Operation error = %i\n", ret);
+        else
+            push(dot_buf, res);
+        dot_avg = avg(dot_buf);
 
         xSemaphoreTake(xImuSemaphore, portMAX_DELAY);
         push(ax_buf, ax);

@@ -19,6 +19,11 @@
 #define SUBSCRIBE_TOPIC_LEN (CLIENT_ID_LEN + 3)
 #define JSON_BUFSIZE 1024 * 2
 
+int8_t op_x= -1;
+int8_t op_y= -1;
+int8_t op_t= -1;
+char op_id[OP_ID_LEN];
+
 static const char *TAG = "MOT_MQTT_CLIENT";
 static const char *CONFIG_BROKER_URI = "mqtts://ahdizksxaeeun-ats.iot.us-east-2.amazonaws.com:8883";
 
@@ -37,9 +42,6 @@ extern const uint8_t mot0_public_pem_start[] asm("_binary_mot0_public_pem_start"
 extern const uint8_t mot0_public_pem_end[] asm("_binary_mot0_public_pem_end");
 extern const uint32_t mot0_public_pem_length;
 
-static int8_t op_x = -1;
-static int8_t op_y = -1;
-static int8_t op_t = 1;
 
 static esp_mqtt_client_handle_t glb_client;
 
@@ -49,7 +51,7 @@ static char game_topic[64];
 static char stats_topic[64];
 static const char *train_topic = "motivate/train";
 
-static const char* mot_client_id = CONFIG_MOT_CLIENT_ID;
+static const char *mot_client_id = CONFIG_MOT_CLIENT_ID;
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
@@ -103,8 +105,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
             if (strcmp(id->valuestring, mot_client_id) != 0)
             {
-                printf("x =%d y = %d\r\n", x->valueint, y->valueint);
-
                 if (x == NULL || y == NULL)
                 {
                     printf("x and y must be provided!");
@@ -114,6 +114,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
                     op_x = x->valueint;
                     op_y = y->valueint;
                     op_t = t->valueint;
+                    strncpy(op_id, id->valuestring, OP_ID_LEN);
                 }
             }
             else
@@ -148,13 +149,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-void mot_mqtt_client_init(int game_id,char* player_id)
+void mot_mqtt_client_init(int game_id, char *player_id)
 {
-    sprintf(game_topic,"motivate/game/%d",game_id);
-    sprintf(stats_topic,"motivate/stats/%s",player_id);
+    sprintf(game_topic, "motivate/game/%d", game_id);
+    sprintf(stats_topic, "motivate/stats/%s", player_id);
     ESP_LOGI(TAG, "Client ID:%s", mot_client_id);
     json_buf = malloc(JSON_BUFSIZE);
     esp_err_t esp_ret = ESP_FAIL;
+    bzero(op_id, OP_ID_LEN);
 
     esp_ret = esp_tls_set_global_ca_store(root_CA_crt_start, root_CA_crt_length + 1);
     if (esp_ret != ESP_OK)
@@ -192,13 +194,6 @@ void mot_mqtt_client_init(int game_id,char* player_id)
     is_inited = true;
 }
 
-void get_op_x_y_t(int8_t *x, int8_t *y,int8_t *t)
-{
-    *x = op_x;
-    *y = op_y;
-    *t = op_t;
-}
-
 void check_null(cJSON *p, int l)
 {
     if (p == NULL)
@@ -216,7 +211,7 @@ void fdump(float **buf, int m)
     }
 }
 
-void send_position(int x, int y,int t, unsigned time)
+void send_position(int x, int y, int t, unsigned time)
 {
     if (!is_inited)
     {
@@ -243,7 +238,7 @@ void send_position(int x, int y,int t, unsigned time)
     cJSON_Delete(pos);
 }
 
-void send_stats(unsigned maze_id , unsigned session,unsigned step_count, unsigned capture_count, unsigned caught_count, unsigned time )
+void send_stats(unsigned maze_id, unsigned session, unsigned step_count, unsigned capture_count, unsigned caught_count, unsigned time)
 {
     if (!is_inited)
     {
@@ -256,9 +251,9 @@ void send_stats(unsigned maze_id , unsigned session,unsigned step_count, unsigne
     cJSON *s_cnt = cJSON_CreateNumber(step_count);
     cJSON *cap_cnt = cJSON_CreateNumber(capture_count);
     cJSON *caught_cnt = cJSON_CreateNumber(caught_count);
-    cJSON *t= cJSON_CreateNumber(time);
+    cJSON *t = cJSON_CreateNumber(time);
 
-    cJSON_AddItemToObject(stats, "time",t);
+    cJSON_AddItemToObject(stats, "time", t);
     cJSON_AddItemToObject(stats, "maze_id", m_id);
     cJSON_AddItemToObject(stats, "session", s);
     cJSON_AddItemToObject(stats, "step_count", s_cnt);

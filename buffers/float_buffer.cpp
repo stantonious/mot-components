@@ -23,7 +23,7 @@ void *big_get_buffer()
 
 void push(void *buf, float f)
 {
-        ((bufType *)buf)->push(f);
+    ((bufType *)buf)->push(f);
 }
 
 void big_push(void *buf, float f)
@@ -55,6 +55,17 @@ float sum_abs(void *buf)
     }
     return res;
 }
+float avg(void *buf)
+{
+    float res = 0.;
+
+    for (int i = 0; i < BUFSIZE; i++)
+    {
+        res += (*(bufType *)buf)[i];
+    }
+    return res / BUFSIZE;
+}
+
 float conv(void *buf, float *f, int coefsize)
 {
     float res = 0.;

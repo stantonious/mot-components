@@ -24,20 +24,6 @@ extern "C"
 
     void init_mot_imu(void);
     void mot_imu_task(void *pvParameters);
-    int buffer_infer(void *ax,
-                     void *ay,
-                     void *az,
-                     void *gx,
-                     void *gy,
-                     void *gz);
-
-    int buffer_confs(void *ax,
-                     void *ay,
-                     void *az,
-                     void *gx,
-                     void *gy,
-                     void *gz,
-                     float *buf);
     int get_latest_inf(int n_last);
 #ifdef __cplusplus
 }

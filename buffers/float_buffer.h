@@ -18,6 +18,7 @@ extern "C"
   float conv(void *buf, float *f, int coefsize);
   float sum_abs(void *buf);
   float stdev(void *buf);
+  float avg(void *buf);
 
   float get(void *buf,int idx);
   float big_get(void *buf,int idx);
