@@ -2,7 +2,7 @@
 #ifndef FLOAT_BUFFER_H_
 #define FLOAT_BUFFER_H_
 
-#define BUFSIZE 10
+#define BUFSIZE 20
 #define BIG_BUFSIZE 50
 
 #ifdef __cplusplus

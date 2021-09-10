@@ -46,7 +46,7 @@ namespace
   // Create an area of memory to use for input, output, and intermediate arrays.
   // Minimum arena size, at the time of writing. After allocating tensors
   // you can retrieve this value by invoking interpreter.arena_used_bytes().
-  const int kModelArenaSize = 3628;
+  const int kModelArenaSize = 4156;
   // Extra headroom for model + alignment + future interpreter changes.
   const int kExtraArenaSize = 560 + 16 + 100;
   const int kTensorArenaSize = kModelArenaSize + kExtraArenaSize;
@@ -143,8 +143,11 @@ int get_max_idx(float *f, int n, float thresh)
   }
   if (max > thresh)
     return max_idx;
-  else
+  else{
+    printf("max too low :%f :%d\n",max,max_idx);
     return UNCERTAIN_LABEL;
+
+  }
 }
 
 int get_max_avg_idx(CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES], int last_n)
@@ -173,7 +176,7 @@ int buffer_confs(
   int8_t *d_i = tflite::GetTensorData<int8>(mot_input);
 
   // Place our calculated x value in the model's input tensor
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < BUFSIZE; i++)
   {
     int8_t quant_val = ((*ax_cb)[i] - a_min) / (a_max - a_min) * 255 / mot_input->params.scale + mot_input->params.zero_point;
     d_i[i * 6 + 0] = quant_val;

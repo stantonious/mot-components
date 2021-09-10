@@ -13,11 +13,12 @@
 #include <sys/param.h>
 
 #include "core2forAWS.h"
+#include "float_buffer.h"
 #include "mot_mqtt_client.h"
 
 #define CLIENT_ID_LEN (ATCA_SERIAL_NUM_SIZE * 2)
 #define SUBSCRIBE_TOPIC_LEN (CLIENT_ID_LEN + 3)
-#define JSON_BUFSIZE 1024 * 2
+#define JSON_BUFSIZE 1024 * 3
 
 int8_t op_x= -1;
 int8_t op_y= -1;
@@ -272,22 +273,22 @@ void send_sample(float **a_samples, float **g_samples, int a_size, int g_size, i
         ESP_LOGW(TAG, "MQTT NOT INITED!!!");
         return;
     }
-    fdump(a_samples, 3);
-    fdump(g_samples, 3);
-    ESP_LOGI(TAG, "S1");
+    //fdump(a_samples, 3);
+    //fdump(g_samples, 3);
+    //ESP_LOGI(TAG, "S1");
     cJSON *sample = cJSON_CreateObject();
     check_null(sample, __LINE__);
-    cJSON *ax_samp = cJSON_CreateFloatArray(a_samples[0], 10);
+    cJSON *ax_samp = cJSON_CreateFloatArray(a_samples[0], BUFSIZE);
     check_null(ax_samp, __LINE__);
-    cJSON *ay_samp = cJSON_CreateFloatArray(a_samples[1], 10);
+    cJSON *ay_samp = cJSON_CreateFloatArray(a_samples[1], BUFSIZE);
     check_null(ay_samp, __LINE__);
-    cJSON *az_samp = cJSON_CreateFloatArray(a_samples[2], 10);
+    cJSON *az_samp = cJSON_CreateFloatArray(a_samples[2], BUFSIZE);
     check_null(az_samp, __LINE__);
-    cJSON *gx_samp = cJSON_CreateFloatArray(g_samples[0], 10);
+    cJSON *gx_samp = cJSON_CreateFloatArray(g_samples[0], BUFSIZE);
     check_null(gx_samp, __LINE__);
-    cJSON *gy_samp = cJSON_CreateFloatArray(g_samples[1], 10);
+    cJSON *gy_samp = cJSON_CreateFloatArray(g_samples[1], BUFSIZE);
     check_null(gy_samp, __LINE__);
-    cJSON *gz_samp = cJSON_CreateFloatArray(g_samples[2], 10);
+    cJSON *gz_samp = cJSON_CreateFloatArray(g_samples[2], BUFSIZE);
     check_null(gz_samp, __LINE__);
     cJSON *g_samp = cJSON_CreateObject();
     check_null(g_samp, __LINE__);
@@ -297,7 +298,6 @@ void send_sample(float **a_samples, float **g_samples, int a_size, int g_size, i
     check_null(ltime, __LINE__);
     cJSON *ltype = cJSON_CreateNumber(type);
     check_null(ltype, __LINE__);
-    ESP_LOGI(TAG, "json init done");
 
     cJSON_AddItemToObject(sample, "time", ltime);
     cJSON_AddItemToObject(sample, "type", ltype);
@@ -310,7 +310,6 @@ void send_sample(float **a_samples, float **g_samples, int a_size, int g_size, i
     cJSON_AddItemToObject(g_samp, "x", gx_samp);
     cJSON_AddItemToObject(g_samp, "y", gy_samp);
     cJSON_AddItemToObject(g_samp, "z", gz_samp);
-    ESP_LOGI(TAG, "sample add done");
 
     cJSON_PrintPreallocated(sample, json_buf, JSON_BUFSIZE, false);
     int pub_ret = esp_mqtt_client_publish(glb_client, train_topic, json_buf, 0, 1, 0);
