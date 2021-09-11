@@ -30,7 +30,7 @@ static const int a_min = -1;
 static const int a_max = 1;
 
 
-#define INF_THRESH .85
+#define INF_THRESH .80
 #define INF_SIZE 10
 
 static SemaphoreHandle_t xInfSemaphore;
@@ -157,7 +157,7 @@ int get_max_avg_idx(CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES], int l
   {
     for (int i = INF_SIZE - 1; i >= INF_SIZE - last_n; i--)
     {
-      avgs[j] += conf_cbs[j][i] / (INF_SIZE - last_n);
+      avgs[j] += conf_cbs[j][i] /  last_n;
     }
   }
   return get_max_idx(avgs, NUM_CLASSES, INF_THRESH);
