@@ -30,7 +30,7 @@ static const int a_min = -1;
 static const int a_max = 1;
 
 
-#define INF_THRESH .80
+#define INF_THRESH .70
 #define INF_SIZE 10
 
 static SemaphoreHandle_t xInfSemaphore;

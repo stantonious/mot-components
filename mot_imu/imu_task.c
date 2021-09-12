@@ -26,9 +26,6 @@ void *gy_buf;
 void *dot_buf;
 float dot_avg = 0.;
 
-#define STABILIZE_THRESH .1
-
-//static bool stabilize = true;
 static const float down_uv[3] = {-.007, .48, .87}; ///~ 15 deg.
 
 void init_imu(void)
@@ -78,7 +75,8 @@ void imu_handler_task(void *pvParameters)
         push(gy_buf, gy);
         push(gz_buf, gz);
         xSemaphoreGive(xImuSemaphore);
-        vTaskDelay(pdMS_TO_TICKS(66)); // 15Hz
+        //vTaskDelay(pdMS_TO_TICKS(66)); // 15Hz
+        vTaskDelay(pdMS_TO_TICKS(33)); // 30Hz
     }
     vTaskDelete(NULL); // Should never get to here...
 }
