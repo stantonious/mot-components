@@ -29,8 +29,7 @@ static const int g_max = 90;
 static const int a_min = -1;
 static const int a_max = 1;
 
-
-#define INF_THRESH .70
+#define INF_THRESH .60
 #define INF_SIZE 10
 
 static SemaphoreHandle_t xInfSemaphore;
@@ -143,24 +142,44 @@ int get_max_idx(float *f, int n, float thresh)
   }
   if (max > thresh)
     return max_idx;
-  else{
-    printf("max too low :%f :%d\n",max,max_idx);
+  else
+  {
+    printf("max too low :%f :%d\n", max, max_idx);
     return UNCERTAIN_LABEL;
-
   }
 }
 
-int get_max_avg_idx(CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES], int last_n)
+int get_max_from_confs( int last_n, float conf)
+{
+  float max = 0.;
+  int max_idx;
+  for (int j = 0; j < NUM_CLASSES; j++)
+  {
+    for (int i = INF_SIZE - 1; i >= INF_SIZE - last_n; i--)
+    {
+      if (conf_cbs[j][i] > max)
+      {
+        max = conf_cbs[j][i];
+        max_idx = j;
+      }
+    }
+  }
+  if (max >= conf) return max_idx;
+  
+  return UNCERTAIN_LABEL;
+}
+
+int get_max_avg_idx(CircularBuffer<float, INF_SIZE> conf_cbs[NUM_CLASSES], int last_n, float conf)
 {
   float avgs[NUM_CLASSES] = {0.};
   for (int j = 0; j < NUM_CLASSES; j++)
   {
     for (int i = INF_SIZE - 1; i >= INF_SIZE - last_n; i--)
     {
-      avgs[j] += conf_cbs[j][i] /  last_n;
+      avgs[j] += conf_cbs[j][i] / last_n;
     }
   }
-  return get_max_idx(avgs, NUM_CLASSES, INF_THRESH);
+  return get_max_idx(avgs, NUM_CLASSES, conf);
 }
 
 int buffer_confs(
@@ -243,11 +262,10 @@ void mot_imu_task(void *pvParameters)
   }
 }
 
-
-int get_latest_inf(int n_last)
+int get_latest_inf(int n_last, float conf)
 {
   xSemaphoreTake(xInfSemaphore, portMAX_DELAY);
-  int res = get_max_avg_idx(conf_cbs, n_last);
+  int res = get_max_avg_idx(conf_cbs, n_last, conf);
   xSemaphoreGive(xInfSemaphore);
   return res;
 }

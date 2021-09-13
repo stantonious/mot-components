@@ -24,7 +24,8 @@ extern "C"
 
     void init_mot_imu(void);
     void mot_imu_task(void *pvParameters);
-    int get_latest_inf(int n_last);
+    int get_max_from_confs(int last_n, float conf);
+    int get_latest_inf(int n_last,float conf);
 #ifdef __cplusplus
 }
 #endif
