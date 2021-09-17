@@ -3,8 +3,8 @@
 #include "maze.h"
 #include "maze_utils.h"
 
-#define WALL_NORM_COLOR LV_COLOR_RED
-#define WALL_HIGH_COLOR LV_COLOR_BLUE
+#define WALL_NORM_COLOR LV_COLOR_BLACK
+#define WALL_HIGH_COLOR LV_COLOR_YELLOW
 #define WALL_LOW_COLOR LV_COLOR_GREEN
 #define WALL_IO_COLOR LV_COLOR_SILVER
 
