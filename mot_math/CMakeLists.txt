@@ -1,5 +1,5 @@
 
 idf_component_register(SRCS "mot_math.cc"
-                       INCLUDE_DIRS . includes
+                       INCLUDE_DIRS . 
                        REQUIRES esp-dsp
                        )
